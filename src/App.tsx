@@ -17,6 +17,21 @@ function ChatApp() {
     markAsRead
   } = useChat();
 
+  // Move useMemo to the top level, before any conditional returns
+  const allUsers = React.useMemo(() => {
+    if (!currentUser) return [];
+    
+    const users = [currentUser];
+    chats.forEach(chat => {
+      chat.participants.forEach(participant => {
+        if (!users.find(u => u.id === participant.id)) {
+          users.push(participant);
+        }
+      });
+    });
+    return users;
+  }, [chats, currentUser]);
+
   if (isLoading) {
     return (
       <div className="h-screen bg-gray-100 flex items-center justify-center">
@@ -34,21 +49,6 @@ function ChatApp() {
 
   const activeChatData = chats.find(chat => chat.id === activeChat) || null;
   const activeChatMessages = activeChat ? messages[activeChat] || [] : [];
-  
-  // Get all users from chats for message rendering
-  const allUsers = React.useMemo(() => {
-    if (!currentUser) return [];
-    
-    const users = [currentUser];
-    chats.forEach(chat => {
-      chat.participants.forEach(participant => {
-        if (!users.find(u => u.id === participant.id)) {
-          users.push(participant);
-        }
-      });
-    });
-    return users;
-  }, [chats, currentUser]);
 
   const handleChatSelect = (chatId: string) => {
     setActiveChat(chatId);
