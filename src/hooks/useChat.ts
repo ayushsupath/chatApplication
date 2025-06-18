@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Message, Chat } from '../types/chat';
+import { useAuth } from '../contexts/AuthContext';
 
 // Mock data for demonstration
 const mockUsers: User[] = [
@@ -30,125 +31,94 @@ const mockUsers: User[] = [
   }
 ];
 
-const mockChats: Chat[] = [
-  {
-    id: '1',
-    name: 'Alice Johnson',
-    type: 'direct',
-    participants: [mockUsers[0]],
-    lastMessage: {
-      id: '1',
-      senderId: '1',
-      content: 'Hey! How are you doing today?',
-      timestamp: new Date(Date.now() - 300000),
-      type: 'text'
-    },
-    unreadCount: 2
-  },
-  {
-    id: '2',
-    name: 'Design Team',
-    type: 'group',
-    participants: [mockUsers[1], mockUsers[2]],
-    lastMessage: {
-      id: '2',
-      senderId: '2',
-      content: 'The new mockups look great!',
-      timestamp: new Date(Date.now() - 600000),
-      type: 'text'
-    },
-    unreadCount: 0,
-    avatar: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop'
-  },
-  {
-    id: '3',
-    name: 'Carol Davis',
-    type: 'direct',
-    participants: [mockUsers[2]],
-    lastMessage: {
-      id: '3',
-      senderId: '3',
-      content: 'Thanks for the help with the project!',
-      timestamp: new Date(Date.now() - 1800000),
-      type: 'text'
-    },
-    unreadCount: 0
-  }
-];
-
-const mockMessages: { [chatId: string]: Message[] } = {
-  '1': [
-    {
-      id: '1',
-      senderId: '1',
-      content: 'Hey! How are you doing today?',
-      timestamp: new Date(Date.now() - 300000),
-      type: 'text'
-    },
-    {
-      id: '2',
-      senderId: 'current',
-      content: 'I\'m doing great! Just working on some new projects.',
-      timestamp: new Date(Date.now() - 240000),
-      type: 'text'
-    },
-    {
-      id: '3',
-      senderId: '1',
-      content: 'That sounds exciting! What kind of projects?',
-      timestamp: new Date(Date.now() - 180000),
-      type: 'text'
-    }
-  ],
-  '2': [
-    {
-      id: '4',
-      senderId: '2',
-      content: 'The new mockups look great!',
-      timestamp: new Date(Date.now() - 600000),
-      type: 'text'
-    },
-    {
-      id: '5',
-      senderId: '3',
-      content: 'I agree! The color scheme is perfect.',
-      timestamp: new Date(Date.now() - 540000),
-      type: 'text'
-    }
-  ],
-  '3': [
-    {
-      id: '6',
-      senderId: '3',
-      content: 'Thanks for the help with the project!',
-      timestamp: new Date(Date.now() - 1800000),
-      type: 'text'
-    },
-    {
-      id: '7',
-      senderId: 'current',
-      content: 'You\'re welcome! Happy to help anytime.',
-      timestamp: new Date(Date.now() - 1740000),
-      type: 'text'
-    }
-  ]
-};
-
 export const useChat = () => {
-  const [chats, setChats] = useState<Chat[]>(mockChats);
-  const [messages, setMessages] = useState<{ [chatId: string]: Message[] }>(mockMessages);
-  const [activeChat, setActiveChat] = useState<string | null>('1');
-  const [currentUser] = useState<User>({
-    id: 'current',
-    name: 'You',
-    avatar: 'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop',
-    status: 'online'
-  });
+  const { user } = useAuth();
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [messages, setMessages] = useState<{ [chatId: string]: Message[] }>({});
+  const [activeChat, setActiveChat] = useState<string | null>(null);
+
+  // Initialize chats based on logged-in user
+  useEffect(() => {
+    if (!user) return;
+
+    // Create chats with other users (excluding current user)
+    const otherUsers = mockUsers.filter(u => u.id !== user.id);
+    
+    const initialChats: Chat[] = otherUsers.map((otherUser, index) => ({
+      id: `chat-${user.id}-${otherUser.id}`,
+      name: otherUser.name,
+      type: 'direct',
+      participants: [otherUser],
+      lastMessage: index === 0 ? {
+        id: '1',
+        senderId: otherUser.id,
+        content: 'Hey! How are you doing today?',
+        timestamp: new Date(Date.now() - 300000),
+        type: 'text'
+      } : undefined,
+      unreadCount: index === 0 ? 2 : 0
+    }));
+
+    // Add a group chat
+    initialChats.push({
+      id: 'group-1',
+      name: 'Design Team',
+      type: 'group',
+      participants: otherUsers.slice(0, 2),
+      lastMessage: {
+        id: '2',
+        senderId: otherUsers[0].id,
+        content: 'The new mockups look great!',
+        timestamp: new Date(Date.now() - 600000),
+        type: 'text'
+      },
+      unreadCount: 0,
+      avatar: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop'
+    });
+
+    setChats(initialChats);
+
+    // Initialize messages for the first chat
+    if (initialChats.length > 0) {
+      const firstChatId = initialChats[0].id;
+      const firstChatParticipant = initialChats[0].participants[0];
+      
+      setMessages({
+        [firstChatId]: [
+          {
+            id: '1',
+            senderId: firstChatParticipant.id,
+            content: 'Hey! How are you doing today?',
+            timestamp: new Date(Date.now() - 300000),
+            type: 'text'
+          },
+          {
+            id: '2',
+            senderId: user.id,
+            content: 'I\'m doing great! Just working on some new projects.',
+            timestamp: new Date(Date.now() - 240000),
+            type: 'text'
+          },
+          {
+            id: '3',
+            senderId: firstChatParticipant.id,
+            content: 'That sounds exciting! What kind of projects?',
+            timestamp: new Date(Date.now() - 180000),
+            type: 'text'
+          }
+        ]
+      });
+
+      setActiveChat(firstChatId);
+    }
+  }, [user]);
 
   const sendMessage = useCallback((chatId: string, content: string) => {
+    if (!user) return;
+
     const newMessage: Message = {
       id: Date.now().toString(),
-      senderId: 'current',
+      senderId: user.id,
       content,
       timestamp: new Date(),
       type: 'text'
@@ -164,7 +134,7 @@ export const useChat = () => {
         ? { ...chat, lastMessage: newMessage }
         : chat
     ));
-  }, []);
+  }, [user]);
 
   const markAsRead = useCallback((chatId: string) => {
     setChats(prev => prev.map(chat => 
@@ -178,7 +148,7 @@ export const useChat = () => {
     chats,
     messages,
     activeChat,
-    currentUser,
+    currentUser: user,
     setActiveChat,
     sendMessage,
     markAsRead
